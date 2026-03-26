@@ -1,0 +1,23 @@
+name = "echo-feedback-board"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 5 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "echo-feedback-board"
+database_id = "31c0836f-764a-47bb-86b8-633726ac8489"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "655cce9316cd44d5ba977751b9eaf14f"
+
+[[services]]
+binding = "ENGINE_RUNTIME"
+service = "echo-engine-runtime"
+
+[vars]
+ECHO_API_KEY = ""
