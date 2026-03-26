@@ -19,5 +19,4 @@ id = "655cce9316cd44d5ba977751b9eaf14f"
 binding = "ENGINE_RUNTIME"
 service = "echo-engine-runtime"
 
-[vars]
-ECHO_API_KEY = ""
+# ECHO_API_KEY set via wrangler secret

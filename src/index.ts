@@ -36,8 +36,12 @@ function getTenant(req: Request): string {
   return req.headers.get('X-Tenant-ID') || new URL(req.url).searchParams.get('tenant_id') || '';
 }
 function authOk(req: Request, env: Env): boolean {
-  if (!env.ECHO_API_KEY) return true;
-  return req.headers.get('X-Echo-API-Key') === env.ECHO_API_KEY;
+  if (!env.ECHO_API_KEY) return false;
+  const apiKey = req.headers.get('X-Echo-API-Key');
+  if (apiKey && apiKey === env.ECHO_API_KEY) return true;
+  const authHeader = req.headers.get('Authorization') || '';
+  if (authHeader.startsWith('Bearer ') && authHeader.slice(7) === env.ECHO_API_KEY) return true;
+  return false;
 }
 async function hashIP(ip: string): Promise<string> {
   const data = new TextEncoder().encode(ip + 'echo-fb-salt-2026');
