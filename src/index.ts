@@ -81,7 +81,6 @@ export default {
       if (!await rateLimit(env.CACHE, rlKey, 60)) return err('Rate limited', 429);
     }
 
-    try {
     if (!authOk(req, env)) return err('Unauthorized', 401);
     const tid = getTenant(req);
 
@@ -118,14 +117,22 @@ export default {
       if (path.match(/^\/boards\/[^/]+$/) && method === 'PUT') {
         const bid = path.split('/')[2];
         const b = await req.json() as Record<string, unknown>;
-        const fields: string[] = []; const vals: unknown[] = [];
-        if (b.name) { fields.push('name = ?'); vals.push(sanitize(String(b.name), 200)); }
-        if (b.description !== undefined) { fields.push('description = ?'); vals.push(sanitize(String(b.description), 500)); }
-        if (b.is_public !== undefined) { fields.push('is_public = ?'); vals.push(b.is_public ? 1 : 0); }
-        if (b.allow_anonymous !== undefined) { fields.push('allow_anonymous = ?'); vals.push(b.allow_anonymous ? 1 : 0); }
-        if (!fields.length) return err('No fields');
+        const ALLOWED: Record<string, (v: unknown) => unknown> = {
+          name: v => sanitize(String(v), 200),
+          description: v => sanitize(String(v), 500),
+          is_public: v => v ? 1 : 0,
+          allow_anonymous: v => v ? 1 : 0,
+        };
+        const setClauses: string[] = []; const vals: unknown[] = [];
+        for (const [col, transform] of Object.entries(ALLOWED)) {
+          if (col in b && (col === 'name' ? b[col] : true)) {
+            setClauses.push(col + ' = ?');
+            vals.push(transform(b[col]));
+          }
+        }
+        if (!setClauses.length) return err('No fields');
         vals.push(bid, tid);
-        await env.DB.prepare(`UPDATE boards SET ${fields.join(', ')} WHERE id = ? AND tenant_id = ?`).bind(...vals).run();
+        await env.DB.prepare('UPDATE boards SET ' + setClauses.join(', ') + ' WHERE id = ? AND tenant_id = ?').bind(...vals).run();
         return json({ ok: true });
       }
 
@@ -212,16 +219,24 @@ export default {
       if (path.match(/^\/roadmap\/[^/]+$/) && method === 'PUT') {
         const rid = path.split('/')[2];
         const b = await req.json() as Record<string, unknown>;
-        const fields: string[] = []; const vals: unknown[] = [];
-        if (b.title) { fields.push('title = ?'); vals.push(sanitize(String(b.title), 200)); }
-        if (b.description !== undefined) { fields.push('description = ?'); vals.push(sanitize(String(b.description), 1000)); }
-        if (b.status) { fields.push('status = ?'); vals.push(sanitize(String(b.status), 30)); }
-        if (b.quarter) { fields.push('quarter = ?'); vals.push(sanitize(String(b.quarter), 10)); }
-        if (b.sort_order !== undefined) { fields.push('sort_order = ?'); vals.push(Number(b.sort_order)); }
-        if (b.linked_post_ids) { fields.push('linked_post_ids = ?'); vals.push(JSON.stringify(b.linked_post_ids)); }
-        if (!fields.length) return err('No fields');
+        const ALLOWED: Record<string, (v: unknown) => unknown> = {
+          title: v => sanitize(String(v), 200),
+          description: v => sanitize(String(v), 1000),
+          status: v => sanitize(String(v), 30),
+          quarter: v => sanitize(String(v), 10),
+          sort_order: v => Number(v),
+          linked_post_ids: v => JSON.stringify(v),
+        };
+        const setClauses: string[] = []; const vals: unknown[] = [];
+        for (const [col, transform] of Object.entries(ALLOWED)) {
+          if (col in b && (col === 'title' || col === 'status' || col === 'quarter' ? b[col] : true)) {
+            setClauses.push(col + ' = ?');
+            vals.push(transform(b[col]));
+          }
+        }
+        if (!setClauses.length) return err('No fields');
         vals.push(rid, tid);
-        await env.DB.prepare(`UPDATE roadmap_items SET ${fields.join(', ')} WHERE id = ? AND tenant_id = ?`).bind(...vals).run();
+        await env.DB.prepare('UPDATE roadmap_items SET ' + setClauses.join(', ') + ' WHERE id = ? AND tenant_id = ?').bind(...vals).run();
         return json({ ok: true });
       }
 
@@ -308,6 +323,7 @@ async function handlePublicAPI(req: Request, env: Env, path: string, method: str
     if (!await rateLimit(env.CACHE, `pub:${ip}`, 20)) return err('Rate limited', 429);
   }
 
+  try {
   // GET /public/:tenant_id/boards
   if (path.match(/^\/public\/[^/]+\/boards$/) && method === 'GET') {
     const tid = path.split('/')[2];
