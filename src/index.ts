@@ -56,7 +56,7 @@ export default {
     const path = url.pathname;
     const method = req.method;
 
-    if (path === '/health') return json({ ok: true, service: 'echo-feedback-board', version: '1.0.0' });
+    if (path === '/health' || path === '/') return json({ ok: true, service: 'echo-feedback-board', version: '1.0.0' });
     if (path === '/status') {
       const [t, p] = await Promise.all([
         env.DB.prepare('SELECT COUNT(*) as c FROM tenants').first<{c:number}>(),
