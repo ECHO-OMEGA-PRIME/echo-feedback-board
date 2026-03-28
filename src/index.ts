@@ -8,6 +8,7 @@ interface Env {
   CACHE: KVNamespace;
   ENGINE_RUNTIME: Fetcher;
   ECHO_API_KEY: string;
+  AE: AnalyticsEngineDataset;
 }
 
 interface RLState { c: number; t: number }
@@ -19,14 +20,13 @@ function uid(): string { return crypto.randomUUID().replace(/-/g, '').slice(0, 1
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' , 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'X-XSS-Protection': '1; mode=block', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=()', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains' } });
 }
-function err(msg: string, status = 400): Response { return json({ ok: false, error: msg }
+function err(msg: string, status = 400): Response { return json({ ok: false, error: msg }, status); }
 
 function slog(level: 'info' | 'warn' | 'error', msg: string, data?: Record<string, unknown>) {
   const entry = { ts: new Date().toISOString(), level, worker: 'echo-feedback-board', version: '1.0.0', msg, ...data };
   if (level === 'error') console.error(JSON.stringify(entry));
   else console.log(JSON.stringify(entry));
 }
-, status); }
 
 async function rateLimit(kv: KVNamespace, key: string, max: number, windowSec = 60): Promise<boolean> {
   const now = Date.now();
@@ -276,6 +276,14 @@ export default {
       }
       console.error(`[echo-feedback-board] ${(e as Error).message}`);
       return err('Internal server error', 500);
+    } finally {
+      try {
+        env.AE.writeDataPoint({
+          blobs: [method, path, '0'],
+          doubles: [Date.now()],
+          indexes: ['echo-feedback-board'],
+        });
+      } catch {}
     }
   },
 
