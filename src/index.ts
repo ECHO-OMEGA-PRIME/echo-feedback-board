@@ -81,6 +81,7 @@ export default {
       if (!await rateLimit(env.CACHE, rlKey, 60)) return err('Rate limited', 429);
     }
 
+    try {
     if (!authOk(req, env)) return err('Unauthorized', 401);
     const tid = getTenant(req);
 
@@ -396,4 +397,11 @@ async function handlePublicAPI(req: Request, env: Env, path: string, method: str
   }
 
   return err('Not found', 404);
+
+    } catch (err_caught: unknown) {
+      const msg = err_caught instanceof Error ? err_caught.message : 'Unknown error';
+      const stack = err_caught instanceof Error ? err_caught.stack : undefined;
+      slog('error', 'Unhandled request error', { method: req.method, path: new URL(req.url).pathname, error: msg, stack });
+      return json({ ok: false, error: 'Internal server error', message: msg, path: new URL(req.url).pathname }, 500);
+    }
 }
